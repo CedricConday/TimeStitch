@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Tap Story</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 30px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .title {
+            font-size: 32px;
+            color: #ff6b6b;
+            margin-bottom: 30px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .story-text {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 30px;
+            min-height: 60px;
+            line-height: 1.4;
+        }
+
+        .pokemon-container {
+            perspective: 1000px;
+            margin: 40px 0;
+        }
+
+        .pokemon {
+            font-size: 120px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            display: inline-block;
+            animation: bounce 0.6s ease-in-out;
+        }
+
+        .pokemon:hover {
+            transform: scale(1.1) rotate(-5deg);
+        }
+
+        .pokemon:active {
+            transform: scale(0.95);
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .tap-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            margin-top: 20px;
+        }
+
+        .tap-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .tap-button:active {
+            transform: translateY(0);
+        }
+
+        .effect {
+            position: fixed;
+            pointer-events: none;
+            font-size: 40px;
+            font-weight: bold;
+            animation: floatUp 1s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-60px);
+            }
+        }
+
+        .score {
+            font-size: 18px;
+            color: #764ba2;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .reset-button {
+            background: #ffd93d;
+            color: #333;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .reset-button:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">🎮 Pokémon Tap Story 🎮</div>
+        <div class="story-text" id="story">Tap the Pokémon to start the adventure!</div>
+        <div class="pokemon-container">
+            <span class="pokemon" id="pokemon">👋</span>
+        </div>
+        <button class="tap-button" onclick="tapPokemon()">TAP ME! 👆</button>
+        <div class="score">Taps: <span id="score">0</span></div>
+        <button class="reset-button" onclick="resetGame()">Reset Story</button>
+    </div>
+
+    <script>
+        const stories = [
+            { text: "Hey there! I'm Pikachu! ⚡", pokemon: "⚡", color: "#FFD700" },
+            { text: "Want to go on an adventure?", pokemon: "😊", color: "#FF69B4" },
+            { text: "Look! There's a wild Squirtle! 💧", pokemon: "🐢", color: "#4A90E2" },
+            { text: "Squirtle is hiding in its shell!", pokemon: "🐚", color: "#8B7355" },
+            { text: "It came out! Hi Squirtle! 👋", pokemon: "🐢", color: "#4A90E2" },
+            { text: "Now we meet Bulbasaur! 🌿", pokemon: "🦎", color: "#7CFC00" },
+            { text: "Bulbasaur says hello! 💚", pokemon: "🦎", color: "#7CFC00" },
+            { text: "And here comes Charmander! 🔥", pokemon: "🦎", color: "#FF4500" },
+            { text: "Charmander is so cool! 🔥", pokemon: "🐉", color: "#FF6347" },
+            { text: "All the Pokémon are here! 🎉", pokemon: "🎉", color: "#FFD700" },
+            { text: "Great job tapping! You're awesome! ⭐", pokemon: "⭐", color: "#FFD700" },
+            { text: "Want to play again? 🎮", pokemon: "🎮", color: "#FF69B4" }
+        ];
+
+        let currentStory = 0;
+        let tapCount = 0;
+
+        function tapPokemon() {
+            tapCount++;
+            document.getElementById("score").textContent = tapCount;
+
+            if (currentStory < stories.length) {
+                const story = stories[currentStory];
+                document.getElementById("story").textContent = story.text;
+                document.getElementById("pokemon").textContent = story.pokemon;
+
+                // Add animation
+                const pokemon = document.getElementById("pokemon");
+                pokemon.style.animation = "none";
+                setTimeout(() => {
+                    pokemon.style.animation = "bounce 0.6s ease-in-out";
+                }, 10);
+
+                // Create floating effect
+                createEffect(story.pokemon);
+                currentStory++;
+            } else {
+                document.getElementById("story").textContent = "🎊 Story Complete! 🎊";
+                document.getElementById("pokemon").textContent = "🏆";
+            }
+        }
+
+        function createEffect(emoji) {
+            const effect = document.createElement("div");
+            effect.className = "effect";
+            effect.textContent = emoji;
+            effect.style.left = Math.random() * window.innerWidth + "px";
+            effect.style.top = Math.random() * window.innerHeight + "px";
+            document.body.appendChild(effect);
+            setTimeout(() => effect.remove(), 1000);
+        }
+
+        function resetGame() {
+            currentStory = 0;
+            tapCount = 0;
+            document.getElementById("score").textContent = "0";
+            document.getElementById("story").textContent = "Tap the Pokémon to start the adventure!";
+            document.getElementById("pokemon").textContent = "👋";
+        }
+
+        // Sound effect (optional - tap feedback)
+        function playSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 400;
+            oscillator.type = "sine";
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // Auto play sound on tap
+        document.addEventListener("click", playSound);
+    </script>
+</body>
+</html>
