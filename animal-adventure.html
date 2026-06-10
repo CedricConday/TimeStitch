@@ -225,17 +225,22 @@ function showNext(){
   document.getElementById('hint').textContent='Tap the '+a.name+'!';
   const wrap=document.createElement('div');
   wrap.style.position='absolute';
-  wrap.style.right='40px';
-  wrap.style.bottom='40px';
+  wrap.style.left='50%';
+  wrap.style.bottom='30%';
+  wrap.style.width='120px';
+  wrap.style.height='110px';
+  wrap.style.marginLeft='-60px';
+  wrap.style.transform='scale(1.8)';
+  wrap.style.transformOrigin='center bottom';
   wrap.innerHTML=animalHTML(a,'hop');
   wrap.onclick=()=>{
     if(wrap.dataset.done==='1') return; wrap.dataset.done='1';
     beep(523,.1); say(a.sound);
     // speech bubble
     const sp=document.createElement('div'); sp.className='speech'; sp.textContent=a.sound;
-    sp.style.right='60px'; sp.style.bottom='150px';
+    sp.style.left='50%'; sp.style.transform='translateX(-50%)'; sp.style.top='28%';
     document.getElementById('s-play').appendChild(sp);
-    burstStars(document.getElementById('app').clientWidth-90, 200);
+    burstStars(document.getElementById('app').clientWidth/2, document.getElementById('app').clientHeight*0.42);
     met++; document.getElementById('ct').textContent=met;
     const chk=document.getElementById('chk-'+a.id); chk.textContent='✅'; chk.classList.add('done');
     setTimeout(()=>{ sp.remove(); idx++; showNext(); }, 1500);
