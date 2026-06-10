@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Critter Adventure</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body { height:100%; overflow:hidden; font-family:'Comic Sans MS','Trebuchet MS',sans-serif; }
+  body {
+    background:linear-gradient(180deg,#7ed6ff 0%,#bff0ff 55%,#9be36b 55%,#7ac74c 100%);
+    display:flex; align-items:center; justify-content:center;
+    touch-action:manipulation;
+  }
+  #app {
+    position:relative; width:100%; max-width:480px; height:100%; max-height:860px;
+    overflow:hidden; background:transparent;
+  }
+
+  /* ---------- generic UI ---------- */
+  .screen { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; }
+  .screen.active { display:flex; }
+  .bigtext {
+    font-size:30px; font-weight:bold; color:#fff; text-align:center;
+    text-shadow:2px 3px 0 rgba(0,0,0,.25); margin:18px 16px; line-height:1.25;
+  }
+  .btn {
+    background:#ffcb05; color:#3b4cca; border:4px solid #3b4cca; border-radius:40px;
+    padding:16px 34px; font-size:24px; font-weight:bold; font-family:inherit;
+    box-shadow:0 6px 0 #2a379c; cursor:pointer; margin-top:10px;
+  }
+  .btn:active { transform:translateY(4px); box-shadow:0 2px 0 #2a379c; }
+  .topbar {
+    position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between;
+    align-items:center; font-size:18px; font-weight:bold; color:#3b4cca; z-index:30; pointer-events:none;
+  }
+  .badge { background:#fff; border:3px solid #3b4cca; border-radius:20px; padding:4px 14px; }
+
+  /* ---------- creatures (all drawn in CSS) ---------- */
+  .critter { position:relative; width:130px; height:130px; cursor:pointer; transition:transform .15s; }
+  .critter:active { transform:scale(.92); }
+  .body { position:absolute; left:15px; top:20px; width:100px; height:100px; border-radius:50%; }
+  .ear { position:absolute; top:-4px; width:26px; height:46px; border-radius:50% 50% 40% 40%; }
+  .ear.l { left:24px; transform:rotate(-22deg); }
+  .ear.r { right:24px; transform:rotate(22deg); }
+  .eye { position:absolute; top:50px; width:18px; height:22px; background:#222; border-radius:50%; }
+  .eye::after { content:''; position:absolute; top:3px; left:4px; width:7px; height:7px; background:#fff; border-radius:50%; }
+  .eye.l { left:42px; } .eye.r { right:42px; }
+  .cheek { position:absolute; top:70px; width:18px; height:13px; border-radius:50%; opacity:.8; }
+  .cheek.l { left:30px; } .cheek.r { right:30px; }
+  .mouth { position:absolute; top:74px; left:60px; width:14px; height:8px; background:#5a2; border-radius:0 0 10px 10px; transform:translateX(-50%); }
+  /* color themes */
+  .c-spark .body { background:radial-gradient(circle at 35% 30%,#ffe98a,#ffcb05); }
+  .c-spark .ear  { background:#ffcb05; } .c-spark .ear::after{content:'';position:absolute;bottom:0;left:0;right:0;height:14px;background:#333;border-radius:0 0 8px 8px;}
+  .c-spark .cheek{ background:#ff5a5a; }
+  .c-flame .body { background:radial-gradient(circle at 35% 30%,#ffb27a,#ff7a3c); }
+  .c-flame .ear  { background:#ff7a3c; } .c-flame .cheek{ background:#ffd0a0; }
+  .c-aqua  .body { background:radial-gradient(circle at 35% 30%,#9fe0ff,#39a7ff); }
+  .c-aqua  .ear  { background:#39a7ff; } .c-aqua .cheek{ background:#bff0ff; }
+  .c-leaf  .body { background:radial-gradient(circle at 35% 30%,#bff08a,#5fc23a); }
+  .c-leaf  .ear  { background:#5fc23a; } .c-leaf .cheek{ background:#ffb6c1; }
+
+  .hop { animation:hop 1s ease-in-out infinite; }
+  @keyframes hop { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+
+  /* choose screen */
+  .pickrow { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:6px; }
+  .pick { background:rgba(255,255,255,.55); border-radius:24px; padding:8px; border:4px solid transparent; }
+  .pick .name { text-align:center; font-weight:bold; color:#3b4cca; font-size:16px; }
+
+  /* play field */
+  #field { position:absolute; inset:0; }
+  .bush {
+    position:absolute; width:90px; height:64px; bottom-style:solid;
+    background:radial-gradient(circle at 50% 30%,#6cd23a,#3d8b1e);
+    border-radius:50% 50% 45% 45%; box-shadow:inset 0 -6px 0 rgba(0,0,0,.12);
+    cursor:pointer; transition:transform .12s;
+  }
+  .bush:active{ transform:scale(.95) }
+  .found { position:absolute; transform:scale(.7); }
+  .pop { animation:pop .4s ease-out; }
+  @keyframes pop { 0%{transform:scale(0)} 70%{transform:scale(.85)} 100%{transform:scale(.7)} }
+
+  /* berries / catch */
+  .berry { position:absolute; width:44px; height:44px; cursor:pointer; }
+  .berry div{ width:100%; height:100%; background:radial-gradient(circle at 35% 30%,#ff8a8a,#e23b3b); border-radius:50%; box-shadow:inset 0 -5px 0 rgba(0,0,0,.15);}
+  .berry::before{ content:''; position:absolute; top:-6px; left:18px; width:8px; height:10px; background:#3d8b1e; border-radius:4px; }
+
+  .floattxt { position:absolute; font-size:30px; font-weight:bold; pointer-events:none; animation:floatUp .9s ease-out forwards; }
+  @keyframes floatUp { from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-70px)} }
+
+  .star { position:absolute; font-size:34px; pointer-events:none; animation:spinUp 1s ease-out forwards; }
+  @keyframes spinUp { from{opacity:1;transform:scale(.4) rotate(0)} to{opacity:0;transform:scale(1.6) rotate(180deg)} }
+
+  .sun { position:absolute; top:24px; right:30px; width:64px; height:64px; border-radius:50%;
+    background:radial-gradient(circle,#fff6a0,#ffd83c); box-shadow:0 0 40px #ffe97a; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ START ============ -->
+  <div class="screen active" id="s-start">
+    <div class="sun"></div>
+    <div class="bigtext" style="margin-top:90px;">🌳 Critter Adventure 🌳</div>
+    <div class="critter c-spark hop" style="margin:6px;">
+      <div class="ear l"></div><div class="ear r"></div>
+      <div class="body"></div>
+      <div class="eye l"></div><div class="eye r"></div>
+      <div class="cheek l"></div><div class="cheek r"></div><div class="mouth"></div>
+    </div>
+    <div class="bigtext" style="font-size:20px;">Find friendly critters,<br>feed them berries, and<br>make new friends!</div>
+    <button class="btn" onclick="go('s-pick')">Play! ▶</button>
+  </div>
+
+  <!-- ============ PICK BUDDY ============ -->
+  <div class="screen" id="s-pick">
+    <div class="bigtext" style="margin-top:60px;">Pick your buddy!</div>
+    <div class="pickrow" id="pickrow"></div>
+    <button class="btn" id="pickGo" style="display:none" onclick="startHunt()">Let's go! ▶</button>
+  </div>
+
+  <!-- ============ FIND (tap bushes) ============ -->
+  <div class="screen" id="s-find">
+    <div class="topbar"><span class="badge" id="findMsg">Tap the bushes!</span><span class="badge">Friends: <span id="friendCt">0</span>/3</span></div>
+    <div id="field"></div>
+  </div>
+
+  <!-- ============ FEED (tap berries to the critter) ============ -->
+  <div class="screen" id="s-feed">
+    <div class="topbar"><span class="badge" id="feedMsg">Tap berries to feed!</span><span class="badge">Berries: <span id="berryCt">0</span>/5</span></div>
+    <div id="feedField" style="position:absolute;inset:0;"></div>
+  </div>
+
+  <!-- ============ WIN ============ -->
+  <div class="screen" id="s-win">
+    <div class="sun"></div>
+    <div class="bigtext" style="margin-top:80px;">🎉 You did it! 🎉</div>
+    <div id="winCritters" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;"></div>
+    <div class="bigtext" style="font-size:20px;">You made <span id="winCt">3</span> new friends!<br>Great job! ⭐</div>
+    <button class="btn" onclick="resetAll()">Play Again 🔄</button>
+  </div>
+
+</div>
+
+<script>
+/* ---------- sound ---------- */
+let actx;
+function beep(freq, dur=0.12, type='sine'){
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.connect(g); g.connect(actx.destination);
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(.25, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.01, actx.currentTime+dur);
+    o.start(); o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+function happySound(){ beep(523,.1); setTimeout(()=>beep(659,.1),90); setTimeout(()=>beep(784,.18),180); }
+
+/* ---------- creatures data ---------- */
+const CRITTERS = [
+  {id:'spark', name:'Sparky', cls:'c-spark'},
+  {id:'flame', name:'Flare',  cls:'c-flame'},
+  {id:'aqua',  name:'Splash', cls:'c-aqua'},
+  {id:'leaf',  name:'Leafy',  cls:'c-leaf'},
+];
+function critterHTML(cls, extra=''){
+  return `<div class="critter ${cls} ${extra}">
+    <div class="ear l"></div><div class="ear r"></div>
+    <div class="body"></div>
+    <div class="eye l"></div><div class="eye r"></div>
+    <div class="cheek l"></div><div class="cheek r"></div><div class="mouth"></div>
+  </div>`;
+}
+
+/* ---------- screen control ---------- */
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ---------- pick buddy ---------- */
+let buddy = null;
+function buildPick(){
+  const row=document.getElementById('pickrow');
+  row.innerHTML='';
+  CRITTERS.forEach(c=>{
+    const d=document.createElement('div');
+    d.className='pick';
+    d.innerHTML = critterHTML(c.cls,'hop') + `<div class="name">${c.name}</div>`;
+    d.onclick=()=>{
+      buddy=c; beep(660);
+      document.querySelectorAll('.pick').forEach(p=>p.style.borderColor='transparent');
+      d.style.borderColor='#3b4cca';
+      document.getElementById('pickGo').style.display='block';
+    };
+    row.appendChild(d);
+  });
+}
+
+/* ---------- FIND mini-game ---------- */
+let friends=0, bushesLeft=0;
+function startHunt(){
+  friends=0; document.getElementById('friendCt').textContent='0';
+  go('s-find');
+  const field=document.getElementById('field');
+  field.innerHTML='';
+  // which of the OTHER critters are hiding (3 friends)
+  const hideList = CRITTERS.filter(c=>c.id!==buddy.id).slice(0,3);
+  // make 6 bushes, 3 hide a critter
+  const slots=[];
+  for(let i=0;i<6;i++) slots.push(i<3 ? hideList[i] : null);
+  shuffle(slots);
+  bushesLeft=6;
+  const W=document.getElementById('app').clientWidth;
+  const H=document.getElementById('app').clientHeight;
+  slots.forEach((critter,i)=>{
+    const col=i%2, rowi=Math.floor(i/2);
+    const b=document.createElement('div');
+    b.className='bush';
+    b.style.left = (40 + col*(W-180)) + 'px';
+    b.style.top  = (150 + rowi*180) + 'px';
+    b.dataset.done='0';
+    b.onclick=()=>{
+      if(b.dataset.done==='1') return;
+      b.dataset.done='1';
+      if(critter){
+        happySound();
+        friends++;
+        document.getElementById('friendCt').textContent=friends;
+        const f=document.createElement('div');
+        f.className='found pop';
+        f.style.left=b.style.left; f.style.top=(parseInt(b.style.top)-40)+'px';
+        f.innerHTML=critterHTML(critter.cls,'hop');
+        field.appendChild(f);
+        burstStars(parseInt(b.style.left)+40, parseInt(b.style.top));
+        b.style.opacity=.35;
+        document.getElementById('findMsg').textContent='You found '+critter.name+'!';
+        if(friends>=3){ setTimeout(startFeed, 900); }
+      }else{
+        beep(180,.15,'square');
+        floatText(parseInt(b.style.left)+30, parseInt(b.style.top), '...', '#fff');
+        b.style.opacity=.5;
+      }
+    };
+    field.appendChild(b);
+  });
+}
+
+/* ---------- FEED mini-game ---------- */
+let fed=0;
+function startFeed(){
+  fed=0; document.getElementById('berryCt').textContent='0';
+  document.getElementById('feedMsg').textContent='Feed '+buddy.name+' 5 berries!';
+  go('s-feed');
+  const ff=document.getElementById('feedField');
+  ff.innerHTML='';
+  const W=document.getElementById('app').clientWidth;
+  const H=document.getElementById('app').clientHeight;
+  // buddy at bottom center, mouth open
+  const buddyEl=document.createElement('div');
+  buddyEl.style.position='absolute';
+  buddyEl.style.left=(W/2-65)+'px';
+  buddyEl.style.bottom='40px';
+  buddyEl.innerHTML=critterHTML(buddy.cls,'hop');
+  ff.appendChild(buddyEl);
+
+  function spawnBerry(){
+    if(fed>=5) return;
+    const berry=document.createElement('div');
+    berry.className='berry';
+    berry.innerHTML='<div></div>';
+    berry.style.left=(30+Math.random()*(W-100))+'px';
+    berry.style.top =(120+Math.random()*(H-360))+'px';
+    berry.onclick=()=>{
+      beep(740,.1);
+      fed++;
+      document.getElementById('berryCt').textContent=fed;
+      floatText(parseInt(berry.style.left), parseInt(berry.style.top),'+1','#e23b3b');
+      berry.remove();
+      buddyEl.querySelector('.critter').classList.add('pop');
+      setTimeout(()=>buddyEl.querySelector('.critter').classList.remove('pop'),300);
+      if(fed>=5){ happySound(); setTimeout(winGame,700); }
+      else spawnBerry();
+    };
+    ff.appendChild(berry);
+  }
+  spawnBerry();
+}
+
+/* ---------- WIN ---------- */
+function winGame(){
+  const wc=document.getElementById('winCritters');
+  wc.innerHTML='';
+  [buddy, ...CRITTERS.filter(c=>c.id!==buddy.id).slice(0,3)].forEach(c=>{
+    const d=document.createElement('div'); d.style.transform='scale(.7)';
+    d.innerHTML=critterHTML(c.cls,'hop'); wc.appendChild(d);
+  });
+  go('s-win');
+  happySound();
+  let n=0; const iv=setInterval(()=>{ burstStars(Math.random()*440+20, Math.random()*300+100); if(++n>8)clearInterval(iv);},200);
+}
+
+/* ---------- helpers ---------- */
+function floatText(x,y,txt,color){
+  const t=document.createElement('div'); t.className='floattxt'; t.textContent=txt;
+  t.style.left=x+'px'; t.style.top=y+'px'; t.style.color=color;
+  document.getElementById('app').appendChild(t); setTimeout(()=>t.remove(),900);
+}
+function burstStars(x,y){
+  for(let i=0;i<5;i++){
+    const s=document.createElement('div'); s.className='star'; s.textContent='⭐';
+    s.style.left=(x+(Math.random()*60-30))+'px'; s.style.top=(y+(Math.random()*60-30))+'px';
+    document.getElementById('app').appendChild(s); setTimeout(()=>s.remove(),1000);
+  }
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+function resetAll(){ buddy=null; document.getElementById('pickGo').style.display='none'; buildPick(); go('s-start'); }
+
+/* init */
+buildPick();
+</script>
+</body>
+</html>
