@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Animal Adventure</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body { height:100%; overflow:hidden; font-family:'Comic Sans MS','Trebuchet MS',sans-serif; }
+  body {
+    background:linear-gradient(180deg,#8fd6ff 0%,#cdeeff 50%,#a6e072 50%,#7ac74c 100%);
+    display:flex; align-items:center; justify-content:center; touch-action:manipulation;
+  }
+  #app { position:relative; width:100%; max-width:480px; height:100%; max-height:880px; overflow:hidden; }
+
+  .screen { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; }
+  .screen.active { display:flex; }
+  .bigtext { font-size:28px; font-weight:bold; color:#fff; text-align:center; text-shadow:2px 3px 0 rgba(0,0,0,.25); margin:16px; line-height:1.3; }
+  .btn { background:#ffcb05; color:#c0392b; border:4px solid #c0392b; border-radius:40px; padding:16px 34px; font-size:24px; font-weight:bold; font-family:inherit; box-shadow:0 6px 0 #962d22; cursor:pointer; margin-top:10px; }
+  .btn:active { transform:translateY(4px); box-shadow:0 2px 0 #962d22; }
+  .topbar { position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; align-items:center; font-size:17px; font-weight:bold; color:#c0392b; z-index:30; pointer-events:none; }
+  .badge { background:#fff; border:3px solid #c0392b; border-radius:20px; padding:4px 12px; }
+  .sun { position:absolute; top:22px; right:28px; width:60px; height:60px; border-radius:50%; background:radial-gradient(circle,#fff6a0,#ffd83c); box-shadow:0 0 36px #ffe97a; }
+  .cloud { position:absolute; background:#fff; border-radius:50px; opacity:.9; }
+  .cloud::before,.cloud::after{content:'';position:absolute;background:#fff;border-radius:50%;}
+
+  /* ---------- PERSON (drawn in CSS) ---------- */
+  .person { position:relative; width:90px; height:150px; }
+  .p-head { position:absolute; left:25px; top:0; width:40px; height:40px; border-radius:50%; background:#ffcf9e; z-index:2; }
+  .p-hair { position:absolute; left:23px; top:-4px; width:44px; height:24px; border-radius:22px 22px 0 0; background:#5a3a1a; z-index:3; }
+  .p-eye { position:absolute; top:18px; width:5px; height:6px; background:#333; border-radius:50%; z-index:4; }
+  .p-eye.l{ left:35px;} .p-eye.r{ left:50px;}
+  .p-smile{ position:absolute; top:26px; left:38px; width:14px; height:7px; border-bottom:3px solid #b5651d; border-radius:0 0 14px 14px; z-index:4;}
+  .p-body { position:absolute; left:22px; top:38px; width:46px; height:55px; border-radius:20px 20px 14px 14px; background:#e74c3c; z-index:1; }
+  .p-arm { position:absolute; top:44px; width:14px; height:40px; background:#e74c3c; border-radius:8px; z-index:0; }
+  .p-arm.l{ left:12px; transform-origin:top center; }
+  .p-arm.r{ right:12px; transform-origin:top center; animation:wave 1s ease-in-out infinite; }
+  @keyframes wave { 0%,100%{transform:rotate(10deg)} 50%{transform:rotate(-40deg)} }
+  .p-leg { position:absolute; top:90px; width:15px; height:42px; background:#2c3e89; border-radius:7px; }
+  .p-leg.l{ left:26px;} .p-leg.r{ left:49px;}
+  .p-shoe{ position:absolute; top:128px; width:20px; height:12px; background:#333; border-radius:8px 10px 6px 6px;}
+  .p-shoe.l{ left:23px;} .p-shoe.r{ left:48px;}
+
+  .walk { animation:walk 1.4s ease-in-out infinite; }
+  @keyframes walk { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+  /* ---------- ANIMALS (drawn in CSS) ---------- */
+  .animal { position:absolute; width:120px; height:110px; cursor:pointer; transition:transform .15s; }
+  .animal:active{ transform:scale(.9); }
+  .a-body{ position:absolute; bottom:6px; left:18px; width:84px; height:64px; border-radius:42px 42px 38px 38px; }
+  .a-head{ position:absolute; top:4px; left:34px; width:54px; height:52px; border-radius:50%; }
+  .a-eye{ position:absolute; width:9px; height:11px; background:#222; border-radius:50%; }
+  .a-eye::after{content:'';position:absolute;top:2px;left:2px;width:3px;height:3px;background:#fff;border-radius:50%;}
+  .a-nose{ position:absolute; width:12px; height:9px; background:#3a2a2a; border-radius:50%; }
+  .a-ear{ position:absolute; width:22px; height:26px; }
+  .a-leg{ position:absolute; bottom:0; width:14px; height:20px; border-radius:0 0 6px 6px; }
+
+  /* DOG (brown) */
+  .dog .a-body,.dog .a-head{ background:#c08a4e; } .dog .a-leg{ background:#c08a4e;}
+  .dog .a-ear{ background:#9c6a34; border-radius:40% 40% 50% 50%; top:2px;}
+  .dog .a-ear.l{ left:30px; transform:rotate(-20deg);} .dog .a-ear.r{ left:70px; transform:rotate(20deg);}
+  .dog .a-snout{ position:absolute; top:30px; left:48px; width:26px; height:20px; background:#e0b27a; border-radius:50%;}
+  /* CAT (grey) */
+  .cat .a-body,.cat .a-head{ background:#9aa0a6; } .cat .a-leg{ background:#9aa0a6;}
+  .cat .a-ear{ width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:20px solid #9aa0a6; top:0;}
+  .cat .a-ear.l{ left:34px;} .cat .a-ear.r{ left:62px;}
+  .cat .a-snout{ position:absolute; top:32px; left:50px; width:20px; height:14px; background:#c4c9ce; border-radius:50%;}
+  /* COW (white+spots) */
+  .cow .a-body,.cow .a-head{ background:#f4f4f4; } .cow .a-leg{ background:#d9d9d9;}
+  .cow .a-body::before{content:'';position:absolute;top:10px;left:14px;width:24px;height:18px;background:#444;border-radius:50%;}
+  .cow .a-ear{ background:#f4f4f4; border:2px solid #ccc; border-radius:50%; width:20px;height:16px; top:8px;}
+  .cow .a-ear.l{ left:26px;} .cow .a-ear.r{ left:74px;}
+  .cow .a-horn{position:absolute;top:0;width:8px;height:12px;background:#e8d8a0;border-radius:4px;}
+  .cow .a-horn.l{left:42px;} .cow .a-horn.r{left:70px;}
+  .cow .a-snout{ position:absolute; top:30px; left:46px; width:30px; height:20px; background:#ffb6c1; border-radius:50%;}
+  /* DUCK (yellow) */
+  .duck .a-body,.duck .a-head{ background:#ffd93c; } .duck .a-leg{ background:#ff9f1c;}
+  .duck .a-beak{ position:absolute; top:30px; left:74px; width:22px; height:12px; background:#ff9f1c; border-radius:6px;}
+  /* FROG (green) */
+  .frog .a-body,.frog .a-head{ background:#5fc23a; } .frog .a-leg{ background:#5fc23a;}
+  .frog .a-eyebump{ position:absolute; top:-4px; width:20px; height:20px; background:#5fc23a; border-radius:50%;}
+  .frog .a-eyebump.l{ left:38px;} .frog .a-eyebump.r{ left:62px;}
+  .frog .a-mouth{ position:absolute; top:38px; left:44px; width:34px; height:6px; background:#2f7a1a; border-radius:4px;}
+
+  .hop { animation:hop 0.9s ease-in-out infinite; }
+  @keyframes hop { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+  .scene-grass{ position:absolute; bottom:0; left:0; right:0; height:44%; }
+  .speech { position:absolute; background:#fff; border:3px solid #c0392b; border-radius:18px; padding:6px 14px; font-size:22px; font-weight:bold; color:#c0392b; white-space:nowrap; animation:pop2 .3s ease-out; z-index:20; }
+  .speech::after{ content:''; position:absolute; bottom:-12px; left:24px; border:8px solid transparent; border-top-color:#fff; }
+  @keyframes pop2 { from{transform:scale(0)} to{transform:scale(1)} }
+  .star { position:absolute; font-size:30px; pointer-events:none; animation:spinUp 1s ease-out forwards; z-index:25;}
+  @keyframes spinUp { from{opacity:1;transform:scale(.4) rotate(0)} to{opacity:0;transform:scale(1.5) rotate(180deg)} }
+
+  .checkrow{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:8px 20px; }
+  .check{ width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.5); display:flex; align-items:center; justify-content:center; font-size:24px; border:3px solid #fff;}
+  .check.done{ background:#fff; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- START -->
+  <div class="screen active" id="s-start">
+    <div class="sun"></div>
+    <div class="cloud" style="top:80px;left:30px;width:70px;height:24px;"></div>
+    <div class="bigtext" style="margin-top:70px;">🐾 Animal Adventure 🐾</div>
+    <div class="person walk" style="margin:6px;">
+      <div class="p-hair"></div><div class="p-head"></div>
+      <div class="p-eye l"></div><div class="p-eye r"></div><div class="p-smile"></div>
+      <div class="p-arm l"></div><div class="p-arm r"></div>
+      <div class="p-body"></div>
+      <div class="p-leg l"></div><div class="p-leg r"></div>
+      <div class="p-shoe l"></div><div class="p-shoe r"></div>
+    </div>
+    <div class="bigtext" style="font-size:19px;">Walk through the meadow<br>and say hello to all<br>the animals!</div>
+    <button class="btn" onclick="startGame()">Start! ▶</button>
+  </div>
+
+  <!-- PLAY -->
+  <div class="screen" id="s-play">
+    <div class="topbar">
+      <span class="badge" id="hint">Tap the animal!</span>
+      <span class="badge">Friends: <span id="ct">0</span>/5</span>
+    </div>
+    <div class="checkrow" id="checks" style="position:absolute;top:46px;left:0;right:0;z-index:30;"></div>
+    <div class="scene-grass"></div>
+    <!-- person stands at left -->
+    <div class="person walk" id="hero" style="position:absolute; bottom:30px; left:16px; transform:scale(.85);">
+      <div class="p-hair"></div><div class="p-head"></div>
+      <div class="p-eye l"></div><div class="p-eye r"></div><div class="p-smile"></div>
+      <div class="p-arm l"></div><div class="p-arm r"></div>
+      <div class="p-body"></div>
+      <div class="p-leg l"></div><div class="p-leg r"></div>
+      <div class="p-shoe l"></div><div class="p-shoe r"></div>
+    </div>
+    <div id="animalSpot"></div>
+  </div>
+
+  <!-- WIN -->
+  <div class="screen" id="s-win">
+    <div class="sun"></div>
+    <div class="bigtext" style="margin-top:70px;">🎉 Hooray! 🎉</div>
+    <div id="parade" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-width:440px;"></div>
+    <div class="bigtext" style="font-size:19px;">You met all 5 animals!<br>What a great adventure! ⭐</div>
+    <button class="btn" onclick="resetGame()">Again! 🔄</button>
+  </div>
+
+</div>
+
+<script>
+/* ---------- sound: tone + spoken word ---------- */
+let actx;
+function beep(freq,dur=.12,type='sine'){
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain(); o.connect(g);g.connect(actx.destination);
+    o.type=type;o.frequency.value=freq; g.gain.setValueAtTime(.25,actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.01,actx.currentTime+dur); o.start();o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+function say(text){
+  try{ const u=new SpeechSynthesisUtterance(text); u.rate=.9; u.pitch=1.3; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){}
+}
+
+/* ---------- animals ---------- */
+const ANIMALS = [
+  {id:'dog', name:'Dog', sound:'Woof woof!', cls:'dog', parts:`
+     <div class="a-body"></div><div class="a-ear l"></div><div class="a-ear r"></div>
+     <div class="a-head"></div><div class="a-snout"></div>
+     <div class="a-eye" style="top:24px;left:46px"></div><div class="a-eye" style="top:24px;left:66px"></div>
+     <div class="a-nose" style="top:34px;left:55px"></div>
+     <div class="a-leg" style="left:30px"></div><div class="a-leg" style="left:76px"></div>`},
+  {id:'cat', name:'Cat', sound:'Meow!', cls:'cat', parts:`
+     <div class="a-body"></div><div class="a-ear l"></div><div class="a-ear r"></div>
+     <div class="a-head"></div><div class="a-snout"></div>
+     <div class="a-eye" style="top:24px;left:46px"></div><div class="a-eye" style="top:24px;left:66px"></div>
+     <div class="a-nose" style="top:33px;left:55px;width:8px;height:6px;background:#e08aa0"></div>
+     <div class="a-leg" style="left:30px"></div><div class="a-leg" style="left:76px"></div>`},
+  {id:'cow', name:'Cow', sound:'Moo!', cls:'cow', parts:`
+     <div class="a-body"></div>
+     <div class="a-horn l"></div><div class="a-horn r"></div>
+     <div class="a-ear l"></div><div class="a-ear r"></div>
+     <div class="a-head"></div><div class="a-snout"></div>
+     <div class="a-eye" style="top:22px;left:46px"></div><div class="a-eye" style="top:22px;left:68px"></div>
+     <div class="a-leg" style="left:30px"></div><div class="a-leg" style="left:76px"></div>`},
+  {id:'duck', name:'Duck', sound:'Quack quack!', cls:'duck', parts:`
+     <div class="a-body"></div>
+     <div class="a-head"></div><div class="a-beak"></div>
+     <div class="a-eye" style="top:22px;left:58px"></div>
+     <div class="a-leg" style="left:36px;background:#ff9f1c"></div><div class="a-leg" style="left:66px;background:#ff9f1c"></div>`},
+  {id:'frog', name:'Frog', sound:'Ribbit!', cls:'frog', parts:`
+     <div class="a-body"></div>
+     <div class="a-eyebump l"></div><div class="a-eyebump r"></div>
+     <div class="a-head"></div><div class="a-mouth"></div>
+     <div class="a-eye" style="top:-2px;left:42px"></div><div class="a-eye" style="top:-2px;left:66px"></div>
+     <div class="a-leg" style="left:24px"></div><div class="a-leg" style="left:82px"></div>`},
+];
+
+function animalHTML(a, extra=''){
+  return `<div class="animal ${a.cls} ${extra}">${a.parts}</div>`;
+}
+
+function go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+/* ---------- game ---------- */
+let order=[], idx=0, met=0;
+function startGame(){
+  beep(660);
+  order = ANIMALS.slice(); shuffle(order);
+  idx=0; met=0;
+  document.getElementById('ct').textContent='0';
+  buildChecks();
+  go('s-play');
+  showNext();
+}
+function buildChecks(){
+  const c=document.getElementById('checks'); c.innerHTML='';
+  ANIMALS.forEach(a=>{ const d=document.createElement('div'); d.className='check'; d.id='chk-'+a.id; d.textContent='❔'; c.appendChild(d); });
+}
+function showNext(){
+  const spot=document.getElementById('animalSpot');
+  spot.innerHTML='';
+  if(idx>=order.length){ setTimeout(winGame,500); return; }
+  const a=order[idx];
+  document.getElementById('hint').textContent='Tap the '+a.name+'!';
+  const wrap=document.createElement('div');
+  wrap.style.position='absolute';
+  wrap.style.right='40px';
+  wrap.style.bottom='40px';
+  wrap.innerHTML=animalHTML(a,'hop');
+  wrap.onclick=()=>{
+    if(wrap.dataset.done==='1') return; wrap.dataset.done='1';
+    beep(523,.1); say(a.sound);
+    // speech bubble
+    const sp=document.createElement('div'); sp.className='speech'; sp.textContent=a.sound;
+    sp.style.right='60px'; sp.style.bottom='150px';
+    document.getElementById('s-play').appendChild(sp);
+    burstStars(document.getElementById('app').clientWidth-90, 200);
+    met++; document.getElementById('ct').textContent=met;
+    const chk=document.getElementById('chk-'+a.id); chk.textContent='✅'; chk.classList.add('done');
+    setTimeout(()=>{ sp.remove(); idx++; showNext(); }, 1500);
+  };
+  spot.appendChild(wrap);
+}
+function winGame(){
+  const p=document.getElementById('parade'); p.innerHTML='';
+  ANIMALS.forEach(a=>{ const d=document.createElement('div'); d.style.transform='scale(.6)'; d.innerHTML=animalHTML(a,'hop'); p.appendChild(d); });
+  go('s-win');
+  beep(523,.1); setTimeout(()=>beep(659,.1),100); setTimeout(()=>beep(784,.2),200);
+  let n=0; const iv=setInterval(()=>{ burstStars(Math.random()*440+20,Math.random()*300+120); if(++n>10)clearInterval(iv);},180);
+}
+
+/* ---------- helpers ---------- */
+function burstStars(x,y){
+  for(let i=0;i<5;i++){ const s=document.createElement('div'); s.className='star'; s.textContent='⭐';
+    s.style.left=(x+(Math.random()*60-30))+'px'; s.style.top=(y+(Math.random()*60-30))+'px';
+    document.getElementById('app').appendChild(s); setTimeout(()=>s.remove(),1000); }
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+function resetGame(){ go('s-start'); }
+</script>
+</body>
+</html>
