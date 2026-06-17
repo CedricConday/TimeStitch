@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Story Game Prototype</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body { height:100%; overflow:hidden; font-family:'Comic Sans MS',sans-serif; }
+  body { background:linear-gradient(180deg,#87ceeb 0%,#e0f6ff 40%,#90ee90 40%,#228b22 100%); display:flex; align-items:center; justify-content:center; }
+
+  #game { position:relative; width:100%; max-width:480px; height:100%; max-height:860px; background:#fff; overflow:hidden; display:flex; flex-direction:column; }
+
+  #artArea {
+    flex:1; background:#e8f4f8; display:flex; align-items:center; justify-content:center;
+    border-bottom:3px solid #999; position:relative; overflow:hidden;
+  }
+
+  .artPlaceholder {
+    width:280px; height:280px; border:3px dashed #aaa; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    font-size:16px; color:#999; font-weight:bold; text-align:center; padding:20px; background:rgba(200,200,200,.1);
+  }
+
+  .artContent { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+
+  #textArea { padding:20px; text-align:center; }
+  .sceneText { font-size:24px; font-weight:bold; color:#333; margin-bottom:16px; line-height:1.3; }
+
+  #controlArea { padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .btn { background:#ffcb05; color:#c0392b; border:4px solid #c0392b; border-radius:30px; padding:14px 26px; font-size:18px; font-weight:bold; cursor:pointer; box-shadow:0 4px 0 #962d22; font-family:inherit; }
+  .btn:active { transform:translateY(2px); box-shadow:0 2px 0 #962d22; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+
+  .choiceBtn { margin:8px auto; width:90%; }
+  .nextBtn { margin-top:4px; }
+
+  .inventory { font-size:14px; color:#666; margin:8px; padding:8px; background:#f0f0f0; border-radius:6px; text-align:center; }
+
+  /* ===== PLACEHOLDER ART SAMPLES ===== */
+  .kid { position:relative; width:80px; height:120px; }
+  .head { position:absolute; top:0; left:20px; width:40px; height:40px; background:#ffcf9e; border-radius:50%; }
+  .hair { position:absolute; top:-4px; left:18px; width:50px; height:24px; background:#8b6914; border-radius:25px 25px 0 0; }
+  .body { position:absolute; top:38px; left:18px; width:44px; height:52px; background:#e74c3c; border-radius:16px; }
+  .arm { position:absolute; top:42px; width:12px; height:38px; background:#e74c3c; border-radius:6px; }
+  .arm.l { left:8px; } .arm.r { right:8px; animation:wave 1s ease-in-out infinite; }
+  @keyframes wave { 0%,100%{transform:rotate(10deg)} 50%{transform:rotate(-40deg)} }
+  .leg { position:absolute; top:86px; width:13px; height:40px; background:#2c3e89; border-radius:6px; }
+  .leg.l { left:22px; } .leg.r { left:46px; }
+  .shoe { position:absolute; top:124px; width:18px; height:10px; background:#333; border-radius:6px; }
+  .shoe.l { left:20px; } .shoe.r { left:44px; }
+
+  .duck { position:relative; width:100px; height:90px; }
+  .duck-body { position:absolute; bottom:6px; left:12px; width:76px; height:58px; background:#ffd93c; border-radius:50%; }
+  .duck-head { position:absolute; top:8px; left:32px; width:36px; height:36px; background:#ffd93c; border-radius:50%; }
+  .duck-beak { position:absolute; top:22px; left:60px; width:18px; height:10px; background:#ff9f1c; border-radius:4px; }
+  .duck-eye { position:absolute; top:18px; left:50px; width:6px; height:6px; background:#222; border-radius:50%; }
+  .duck-leg { position:absolute; bottom:0; width:10px; height:18px; background:#ff9f1c; border-radius:0 0 4px 4px; }
+  .duck-leg.l { left:28px; } .duck-leg.r { left:60px; }
+
+  .emotion { position:absolute; top:-20px; font-size:40px; }
+
+  #debug { position:fixed; bottom:4px; right:4px; font-size:11px; background:#f0f0f0; padding:6px; border:1px solid #999; border-radius:4px; max-width:200px; max-height:80px; overflow:auto; z-index:1000; }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <div id="artArea">
+    <div class="artPlaceholder">YOUR CUSTOM ART DRAWN HERE →</div>
+    <div class="artContent" id="artContent"></div>
+  </div>
+
+  <div id="textArea">
+    <div class="sceneText" id="sceneText"></div>
+    <div class="inventory" id="inventory" style="display:none;"></div>
+  </div>
+
+  <div id="controlArea"></div>
+</div>
+
+<div id="debug"></div>
+
+<!-- ===== JAVASCRIPT GAME ENGINE ===== -->
+<script>
+
+/* ============================================
+   GAME ENGINE - Handles scenes, state, flow
+   ============================================ */
+
+class GameEngine {
+  constructor(story) {
+    this.story = story;
+    this.state = {
+      currentScene: 'intro',
+      inventory: [],
+      friendsMet: [],
+      choices: {},
+      tasksCompleted: []
+    };
+  }
+
+  getCurrentScene() {
+    return this.story[this.state.currentScene];
+  }
+
+  goToScene(sceneId) {
+    if (this.story[sceneId]) {
+      this.state.currentScene = sceneId;
+      return true;
+    }
+    return false;
+  }
+
+  recordChoice(key, value) {
+    this.state.choices[key] = value;
+  }
+
+  addToInventory(item) {
+    if (!this.state.inventory.includes(item)) {
+      this.state.inventory.push(item);
+    }
+  }
+
+  addFriend(name) {
+    if (!this.state.friendsMet.includes(name)) {
+      this.state.friendsMet.push(name);
+    }
+  }
+
+  log(msg) {
+    const d = document.getElementById('debug');
+    d.innerHTML = (msg + '<br>' + d.innerHTML).split('<br>').slice(0,8).join('<br>');
+  }
+}
+
+/* ============================================
+   RENDERER - Draws scenes + art placeholders
+   ============================================ */
+
+class Renderer {
+  constructor(engine) {
+    this.engine = engine;
+  }
+
+  render() {
+    const scene = this.engine.getCurrentScene();
+    if (!scene) return;
+
+    // Clear
+    document.getElementById('artContent').innerHTML = '';
+    document.getElementById('controlArea').innerHTML = '';
+
+    // Draw art
+    this.drawArt(scene);
+
+    // Draw text
+    document.getElementById('sceneText').textContent = scene.text;
+
+    // Draw inventory
+    const inv = document.getElementById('inventory');
+    if (this.engine.state.inventory.length > 0) {
+      inv.textContent = '🎒 Inventory: ' + this.engine.state.inventory.map(x => x.emoji).join(' ');
+      inv.style.display = 'block';
+    } else {
+      inv.style.display = 'none';
+    }
+
+    // Draw controls based on scene type
+    if (scene.type === 'narrative') {
+      this.drawNarrativeControls(scene);
+    } else if (scene.type === 'choice') {
+      this.drawChoiceControls(scene);
+    } else if (scene.type === 'action') {
+      this.drawActionControls(scene);
+    } else if (scene.type === 'outcome') {
+      this.drawOutcomeControls(scene);
+    }
+  }
+
+  drawArt(scene) {
+    const art = document.getElementById('artContent');
+    // Each scene can have custom art - these are placeholders YOU'LL REPLACE
+
+    if (scene.art === 'kid') {
+      art.innerHTML = `<div class="kid"><div class="hair"></div><div class="head"></div><div class="body"></div><div class="arm l"></div><div class="arm r"></div><div class="leg l"></div><div class="leg r"></div><div class="shoe l"></div><div class="shoe r"></div></div>`;
+    } else if (scene.art === 'duckSad') {
+      art.innerHTML = `<div style="position:relative;"><div class="duck"><div class="duck-body"></div><div class="duck-head"></div><div class="duck-beak"></div><div class="duck-eye"></div><div class="duck-leg l"></div><div class="duck-leg r"></div></div><div class="emotion" style="left:20px;">😢</div></div>`;
+    } else if (scene.art === 'duckHappy') {
+      art.innerHTML = `<div style="position:relative;"><div class="duck"><div class="duck-body"></div><div class="duck-head"></div><div class="duck-beak"></div><div class="duck-eye"></div><div class="duck-leg l"></div><div class="duck-leg r"></div></div><div class="emotion" style="left:20px;">😊</div></div>`;
+    } else if (scene.art === 'forest') {
+      art.innerHTML = `<div style="font-size:80px;">🌲🌳🌲</div>`;
+    } else if (scene.art === 'victory') {
+      art.innerHTML = `<div style="font-size:100px;animation:spin 2s linear infinite;">🎉</div><style>@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}</style>`;
+    }
+  }
+
+  drawNarrativeControls(scene) {
+    const area = document.getElementById('controlArea');
+    const btn = document.createElement('button');
+    btn.className = 'btn nextBtn';
+    btn.textContent = 'Next →';
+    btn.onclick = () => {
+      this.engine.goToScene(scene.next);
+      this.render();
+    };
+    area.appendChild(btn);
+  }
+
+  drawChoiceControls(scene) {
+    const area = document.getElementById('controlArea');
+    scene.choices.forEach((choice, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn choiceBtn';
+      btn.textContent = choice.text;
+      btn.onclick = () => {
+        this.engine.recordChoice(scene.choiceKey, idx);
+        this.engine.goToScene(choice.leads);
+        this.render();
+      };
+      area.appendChild(btn);
+    });
+  }
+
+  drawActionControls(scene) {
+    const area = document.getElementById('controlArea');
+    if (scene.task === 'collect') {
+      // Mini-game: tap to collect
+      const found = scene.found || 0;
+      const goal = scene.goal || 3;
+
+      const info = document.createElement('div');
+      info.style.textAlign = 'center';
+      info.style.fontSize = '18px';
+      info.style.fontWeight = 'bold';
+      info.style.marginBottom = '8px';
+      info.innerHTML = `Collect: ${found}/${goal}`;
+      area.appendChild(info);
+
+      if (found < goal) {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.style.width = '80%';
+        btn.style.margin = '0 auto';
+        btn.textContent = '🪨 Tap to search';
+        btn.onclick = () => {
+          if (Math.random() < 0.5) {
+            scene.found = (scene.found || 0) + 1;
+            this.engine.addToInventory({name:scene.item, emoji:'🫐'});
+            if (scene.found >= goal) {
+              setTimeout(() => {
+                this.engine.goToScene(scene.onComplete);
+                this.render();
+              }, 300);
+            } else {
+              this.render();
+            }
+          } else {
+            const msg = document.createElement('div');
+            msg.style.color = '#999';
+            msg.style.fontSize = '16px';
+            msg.textContent = 'Nothing here...';
+            area.appendChild(msg);
+            setTimeout(() => msg.remove(), 1000);
+          }
+        };
+        area.appendChild(btn);
+      }
+    }
+  }
+
+  drawOutcomeControls(scene) {
+    const area = document.getElementById('controlArea');
+    const btn = document.createElement('button');
+    btn.className = 'btn nextBtn';
+    btn.textContent = scene.nextText || 'Continue →';
+    btn.onclick = () => {
+      this.engine.goToScene(scene.next);
+      this.render();
+    };
+    area.appendChild(btn);
+  }
+}
+
+/* ============================================
+   STORY DATA - Define your narrative here
+   ============================================ */
+
+const STORY = {
+  // Scene 1: Intro
+  intro: {
+    type: 'narrative',
+    text: 'You find yourself in a beautiful meadow.\nA sad duck is sitting by the pond.',
+    art: 'duckSad',
+    next: 'duckChoice'
+  },
+
+  // Scene 2: Choice
+  duckChoice: {
+    type: 'choice',
+    text: 'The duck looks lonely. What do you do?',
+    art: 'duckSad',
+    choiceKey: 'duckAction',
+    choices: [
+      { text: '🫐 Give it berries', leads: 'duckCollect' },
+      { text: '🎮 Play with it', leads: 'duckPlay' }
+    ]
+  },
+
+  // Scene 3a: Action (collect berries)
+  duckCollect: {
+    type: 'action',
+    text: 'Search the forest for berries!\nFind 3 berries for the duck.',
+    art: 'forest',
+    task: 'collect',
+    goal: 3,
+    item: 'berry',
+    found: 0,
+    onComplete: 'duckFed'
+  },
+
+  // Scene 3b: Outcome (fed the duck)
+  duckFed: {
+    type: 'outcome',
+    text: 'The duck eats the berries happily!\n"Thank you, friend!" 💛',
+    art: 'duckHappy',
+    next: 'ending'
+  },
+
+  // Scene 3c: Alternative (play with duck)
+  duckPlay: {
+    type: 'outcome',
+    text: 'You play games with the duck.\nIt quacks with joy! 🦆',
+    art: 'duckHappy',
+    next: 'ending'
+  },
+
+  // Scene 4: Ending
+  ending: {
+    type: 'outcome',
+    text: 'You made a new friend in the meadow!\nWhat a wonderful day. 🌟',
+    art: 'victory',
+    nextText: 'Play Again',
+    next: 'intro'
+  }
+};
+
+/* ============================================
+   INITIALIZATION
+   ============================================ */
+
+const engine = new GameEngine(STORY);
+const renderer = new Renderer(engine);
+
+// Start game
+renderer.render();
+engine.log('Game started! Current scene: ' + engine.state.currentScene);
+
+</script>
+
+</body>
+</html>
